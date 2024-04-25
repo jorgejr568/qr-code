@@ -20,7 +20,7 @@ type Server interface {
 
 type echoServer struct {
 	e                     *echo.Echo
-	generateQrCodeUseCase usecases.GenerateQrCodeFromUrl
+	generateQrCodeUseCase usecases.GenerateQrCodeFromData
 	logger                *zap.Logger
 }
 
@@ -55,7 +55,7 @@ func (s echoServer) register() {
 
 	s.e.GET("/", func(c echo.Context) error {
 		size := c.QueryParam("size")
-		url := c.QueryParam("url")
+		data := c.QueryParam("data")
 
 		sizeInt := 0
 		if size != "" {
@@ -66,12 +66,12 @@ func (s echoServer) register() {
 			}
 		}
 
-		image, err := s.generateQrCodeUseCase.Make(c.Request().Context(), url, sizeInt)
+		image, err := s.generateQrCodeUseCase.Make(c.Request().Context(), data, sizeInt)
 		if err != nil {
-			if errors.Is(err, usecases.ErrorSizeMustBeBetweenMinAndMax) || errors.Is(err, usecases.ErrorUrlIsEmptyOrInvalid) {
+			if errors.Is(err, usecases.ErrorSizeMustBeBetweenMinAndMax) || errors.Is(err, usecases.ErrorDataIsEmpty) {
 				return c.JSON(http.StatusBadRequest, err.Error())
 			}
-			
+
 			return c.JSON(http.StatusInternalServerError, "failed to generate qr code")
 		}
 
@@ -79,7 +79,7 @@ func (s echoServer) register() {
 	})
 }
 
-func newEchoServer(logger *zap.Logger, generateQrCodeFromUrl usecases.GenerateQrCodeFromUrl) Server {
+func newEchoServer(logger *zap.Logger, generateQrCodeFromUrl usecases.GenerateQrCodeFromData) Server {
 	e := echo.New()
 	e.Use(echozap.ZapLogger(logger))
 	e.Use(middleware.Recover())
