@@ -12,7 +12,8 @@ type Config struct {
 	MaxQrCodeSize     int `env:"MAX_QR_CODE_SIZE,default=2048"`
 	MinQrCodeSize     int `env:"MIN_QR_CODE_SIZE,default=64"`
 
-	LogLevel string `env:"LOG_LEVEL,default=debug"`
+	LogLevel     string `env:"LOG_LEVEL,default=debug"`
+	PProfEnabled bool   `env:"PPROF_ENABLED,default=false"`
 }
 
 func NewConfig() (*Config, error) {

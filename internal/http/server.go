@@ -7,8 +7,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
+	"qr-code-server/cfg"
+	"qr-code-server/internal/adpters/echohttp"
 	"qr-code-server/internal/adpters/echozap"
 	usecases "qr-code-server/internal/use-cases"
 	"strconv"
@@ -20,8 +23,9 @@ type Server interface {
 
 type echoServer struct {
 	e                     *echo.Echo
-	generateQrCodeUseCase usecases.GenerateQrCodeFromData
 	logger                *zap.Logger
+	pprofEnabled          bool
+	generateQrCodeUseCase usecases.GenerateQrCodeFromData
 }
 
 func (s echoServer) ListenAndServeWithGracefulShutdown(ctx context.Context, addr string) error {
@@ -41,6 +45,10 @@ func (s echoServer) ListenAndServeWithGracefulShutdown(ctx context.Context, addr
 	}()
 
 	s.register()
+	if s.pprofEnabled {
+		s.logger.Debug("pprof is enabled")
+		s.registerPprof()
+	}
 	err := s.e.Start(addr)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return errors.Wrap(err, "failed to start server")
@@ -79,7 +87,21 @@ func (s echoServer) register() {
 	})
 }
 
-func newEchoServer(logger *zap.Logger, generateQrCodeFromUrl usecases.GenerateQrCodeFromData) Server {
+func (s echoServer) registerPprof() {
+	s.e.GET("/debug/pprof", echohttp.HttpHandlerToEchoHandler(pprof.Index))
+	s.e.GET("/debug/cmdline", echohttp.HttpHandlerToEchoHandler(pprof.Cmdline))
+	s.e.GET("/debug/profile", echohttp.HttpHandlerToEchoHandler(pprof.Profile))
+	s.e.GET("/debug/symbol", echohttp.HttpHandlerToEchoHandler(pprof.Symbol))
+	s.e.GET("/debug/trace", echohttp.HttpHandlerToEchoHandler(pprof.Trace))
+	s.e.GET("/debug/allocs", echohttp.HttpHandlerToEchoHandler(pprof.Handler("allocs").ServeHTTP))
+	s.e.GET("/debug/block", echohttp.HttpHandlerToEchoHandler(pprof.Handler("block").ServeHTTP))
+	s.e.GET("/debug/goroutine", echohttp.HttpHandlerToEchoHandler(pprof.Handler("goroutine").ServeHTTP))
+	s.e.GET("/debug/heap", echohttp.HttpHandlerToEchoHandler(pprof.Handler("heap").ServeHTTP))
+	s.e.GET("/debug/mutex", echohttp.HttpHandlerToEchoHandler(pprof.Handler("mutex").ServeHTTP))
+	s.e.GET("/debug/threadcreate", echohttp.HttpHandlerToEchoHandler(pprof.Handler("threadcreate").ServeHTTP))
+}
+
+func newEchoServer(c *cfg.Config, logger *zap.Logger, generateQrCodeFromUrl usecases.GenerateQrCodeFromData) Server {
 	e := echo.New()
 	e.Use(echozap.ZapLogger(logger))
 	e.Use(middleware.Recover())
@@ -92,5 +114,6 @@ func newEchoServer(logger *zap.Logger, generateQrCodeFromUrl usecases.GenerateQr
 		e:                     e,
 		generateQrCodeUseCase: generateQrCodeFromUrl,
 		logger:                logger,
+		pprofEnabled:          c.PProfEnabled,
 	}
 }
