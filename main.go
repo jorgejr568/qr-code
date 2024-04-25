@@ -13,7 +13,7 @@ import (
 func main() {
 	ctx := context.Background()
 	container := dig.New()
-	logger := zap.Must(zap.NewDevelopment()).With(zap.String("service", "qr-code-server"))
+	logger := zap.Must(zap.NewProduction()).With(zap.String("service", "qr-code-server"))
 	defer logger.Sync()
 
 	container.Provide(func() *zap.Logger {
